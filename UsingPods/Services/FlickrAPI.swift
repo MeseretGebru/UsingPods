@@ -8,12 +8,49 @@
 
 import Foundation
 import CoreLocation
+import Alamofire
+
+// use custom delegate to update listeners when photoSearch is complete
+protocol FlickrAPIDelegate: class {
+    func flickrService(_ flickrService: FlickrAPI, didReceivePhotos photos: [Photo])
+}
 
 class FlickrAPI {
+    
     let flickrBaseURL = "https://api.flickr.com/services/rest/?"
 
-    func photoSearch(photoType: String, location: CLLocationCoordinate2D) {
+    weak var delegate: FlickrAPIDelegate?
+    
+    func photoSearch(photoType: String, location: CLLocationCoordinate2D?) {
         // TODO: use Alamofire to make network request
+        
+        var params: [String: Any] = ["api_key": APIKeys.apiKey,
+                                     "method": "flickr.photos.search",
+                                     "lat": 40.93,
+                                     "lon": -73.88,
+                                     "format": "json",
+                                     "extras": "url_m, description",
+                                     "per_page": 500, //default is 20
+                                     "text": "roti",
+                                     "nojsoncallback": 1,
+                                     "safe_search": 3]
+        // TODO: ability to update lat and lon
+        params["text"] = photoType
+        
+        Alamofire.request(flickrBaseURL, method: .get, parameters: params, encoding: URLEncoding.default, headers: nil).responseData { (dataResponse) in
+            if let error = dataResponse.error {
+                print("dataResponse error: \(error)")
+            } else if let data = dataResponse.data {
+                do {
+                    let decoder = JSONDecoder()
+                    let results = try decoder.decode(Search.self, from: data)
+                    let photos = results.results.photos
+                    self.delegate?.flickrService(self, didReceivePhotos: photos)
+                } catch {
+                    print("decoding error: \(error)")
+                }
+            }
+        }
         
         // TODO: complete the implementation of the Flickr photoSearch()
         // TODO: user should be able to enter a type of photo to search e.g. central park
